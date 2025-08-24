@@ -10,7 +10,9 @@ from gtts import gTTS
 # Configure APIs
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
-elevenlabs_client = ElevenLabs(api_key="sk_18136ffb1cb2e007b9067179aba66bf60f4207ae87ec9caf")
+# SECURE VERSION
+elevenlabs_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+
 
 NODDY_IDENTITY = (
     "You are Noddy, a friendly AI assistant. "
