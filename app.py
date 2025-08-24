@@ -5,45 +5,44 @@ from elevenlabs.client import ElevenLabs
 import tempfile
 import speech_recognition as sr
 import traceback
+from gtts import gTTS
 
-# Configure Gemini API
+# Configure APIs
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
-
-# Configure ElevenLabs API
+# SECURE VERSION
 elevenlabs_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
-# Noddy's System Identity
+
 NODDY_IDENTITY = (
     "You are Noddy, a friendly AI assistant. "
     "Always refer to yourself as Noddy when introducing yourself or answering questions about your name. "
     "Your personality is cheerful, playful, and slightly mischievous like the cartoon Noddy."
 )
 
-# Your custom ElevenLabs voice ID (replace with your voice ID)
-CUSTOM_VOICE_ID = "1zUSi8LeHs9M2mV8X6YS"  # Replace this with your actual voice ID
+CUSTOM_VOICE_ID = "1zUSi8LeHs9M2mV8X6YS"  # Replace with your actual ElevenLabs voice ID
 
 def transcribe_audio(audio_filepath):
-    """Convert audio to text using speech recognition"""
     if audio_filepath is None:
         return "No audio received"
     
     recognizer = sr.Recognizer()
     try:
         with sr.AudioFile(audio_filepath) as source:
-            recognizer.adjust_for_ambient_noise(source)
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            recognizer.energy_threshold = 4000
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data)
+            text = recognizer.recognize_google(audio_data, language='en-US')
             return text
     except sr.UnknownValueError:
         return "Sorry, I couldn't understand the audio. Could you please speak more clearly?"
     except sr.RequestError as e:
         return f"Sorry, there was an error with the speech recognition service: {str(e)}"
     except Exception as e:
-        return f"An error occurred: {str(e)}"
+        print(f"Audio processing error: {str(e)}")
+        return f"An error occurred while processing audio: {str(e)}"
 
 def chat_with_noddy(message, history):
-    """Get response from Gemini API"""
     try:
         formatted_history = []
         for msg in history:
@@ -62,28 +61,93 @@ def chat_with_noddy(message, history):
     except Exception as e:
         return f"Sorry, I had trouble processing that. Error: {str(e)}"
 
-def create_elevenlabs_audio(text):
-    """Convert text to audio using ElevenLabs API"""
+def create_audio_response_with_fallback(text):
+    """Simple ElevenLabs TTS"""
     try:
-        # Generate audio using ElevenLabs
+        # Direct ElevenLabs call
         audio = elevenlabs_client.text_to_speech.convert(
             text=text,
-            voice_id=CUSTOM_VOICE_ID,  # Your custom voice
-            model_id="eleven_multilingual_v2",  # High quality model
-            output_format="mp3_44100_128"
+            voice_id=CUSTOM_VOICE_ID,
+            model_id="eleven_multilingual_v2"
         )
         
-        # Save to temporary file
+        # Save to file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
-            # Write the audio bytes to file
             for chunk in audio:
                 if chunk:
                     tmp_file.write(chunk)
             return tmp_file.name
+    
+    except:
+        # Simple fallback
+        from gtts import gTTS
+        tts = gTTS(text=text, lang='en')
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            tts.save(tmp_file.name)
+            return tmp_file.name
+
+
+'''def create_audio_response_with_fallback(text):
+    """Try ElevenLabs first, fallback to gTTS if it fails"""
+    print(f"🎯 Creating audio for text: '{text[:100]}...'")
+    
+    # First try ElevenLabs
+    try:
+        print("🔄 Attempting ElevenLabs...")
+        
+        # Check if API key exists
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            print("❌ ELEVENLABS_API_KEY not found, using gTTS fallback")
+            raise Exception("No API key")
+        
+        print(f"✅ ElevenLabs API Key found: {api_key[:10]}...")
+        print(f"✅ Using Voice ID: {CUSTOM_VOICE_ID}")
+        
+        # Make ElevenLabs API call
+        audio = elevenlabs_client.text_to_speech.convert(
+            text=text,
+            voice_id=CUSTOM_VOICE_ID,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128"
+        )
+        
+        print("✅ ElevenLabs API call successful!")
+        
+        # Save ElevenLabs audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            for chunk in audio:
+                if chunk:
+                    tmp_file.write(chunk)
             
+            if os.path.exists(tmp_file.name):
+                file_size = os.path.getsize(tmp_file.name)
+                print(f"✅ ElevenLabs file created: {tmp_file.name} ({file_size} bytes)")
+                if file_size > 0:
+                    return tmp_file.name
+        
     except Exception as e:
-        print(f"ElevenLabs Error: {str(e)}")
-        return None
+        print(f"❌ ElevenLabs failed: {str(e)}")
+    
+    # Fallback to gTTS
+    print("🔄 Falling back to gTTS...")
+    try:
+        tts = gTTS(text=text, lang='en', slow=False)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            tts.save(tmp_file.name)
+            
+            if os.path.exists(tmp_file.name):
+                file_size = os.path.getsize(tmp_file.name)
+                print(f"✅ gTTS fallback successful: {tmp_file.name} ({file_size} bytes)")
+                if file_size > 0:
+                    return tmp_file.name
+        
+    except Exception as e:
+        print(f"❌ gTTS fallback also failed: {str(e)}")
+    
+    return None'''
+
 
 def process_conversation(audio_file, chat_history):
     """Main function to process voice conversation"""
@@ -91,33 +155,33 @@ def process_conversation(audio_file, chat_history):
         if audio_file is None:
             return chat_history, None, "Please record some audio first."
         
-        # Step 1: Speech-to-text
         user_message = transcribe_audio(audio_file)
         
         if not user_message or "error" in user_message.lower():
             error_msg = "Sorry, I couldn't understand your speech. Please try again."
             return chat_history, None, error_msg
         
-        # Step 2: Get Noddy's response
         bot_message = chat_with_noddy(user_message, chat_history)
+        audio_response = create_audio_response_with_fallback(bot_message)
         
-        # Step 3: Create audio response with ElevenLabs
-        audio_response = create_elevenlabs_audio(bot_message)
-        
-        # Step 4: Update chat history
         new_history = chat_history + [
             {"role": "user", "content": user_message},
             {"role": "assistant", "content": bot_message}
         ]
         
-        return new_history, audio_response, f"✅ Processed: '{user_message[:50]}...'" if len(user_message) > 50 else f"✅ Processed: '{user_message}'"
+        if audio_response:
+            status_msg = f"✅ Processed: '{user_message}' - Click ▶️ to play Noddy's response!"
+        else:
+            status_msg = f"✅ Text processed: '{user_message}' (voice generation failed)"
+        
+        return new_history, audio_response, status_msg
         
     except Exception as e:
         error_msg = f"An error occurred: {str(e)}"
         print(f"Error in process_conversation: {traceback.format_exc()}")
         return chat_history, None, error_msg
 
-# Custom CSS for better UI
+# Custom CSS
 custom_css = """
 .chatbot .user {
     background-color: #e6e6e6 !important;
@@ -133,11 +197,10 @@ custom_css = """
 }
 """
 
-# Create Gradio Interface
 with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice Chat") as demo:
     
-    gr.Markdown("# 🤖 Noddy Voice Chat with ElevenLabs")
-    gr.Markdown("*Talk to Noddy using your voice! Powered by your custom ElevenLabs voice.*")
+    gr.Markdown("# 🤖 Noddy Voice Chat")
+    gr.Markdown("*Talk to Noddy using your voice! Click the play button ▶️ to hear responses.*")
     
     with gr.Row():
         with gr.Column(scale=2):
@@ -150,7 +213,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
             
             status_display = gr.Textbox(
                 label="Status",
-                value="Ready to chat with your custom voice! Record your message.",
+                value="Ready to chat! Record your message.",
                 interactive=False
             )
         
@@ -162,15 +225,18 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
             )
             
             audio_output = gr.Audio(
-                label="🔊 Noddy's Custom Voice Response",
-                autoplay=True
+                label="🔊 Noddy's Voice Response",
+                autoplay=False,  # Disable autoplay to fix Chrome issues
+                interactive=True,
+                show_download_button=True
             )
             
             clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
     
+    # State to store chat history - DEFINED HERE!
     chat_state = gr.State([])
     
-    # Event handling
+    # Event handling - NOW chat_state IS DEFINED
     audio_input.change(
         fn=process_conversation,
         inputs=[audio_input, chat_state],
@@ -183,7 +249,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
     )
     
     def clear_chat():
-        return [], [], "Chat cleared! Ready for new conversation with custom voice."
+        return [], [], "Chat cleared! Ready for new conversation."
     
     clear_btn.click(
         fn=clear_chat,
@@ -191,24 +257,47 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
     )
     
     gr.Markdown("""
-    ### Custom ElevenLabs Voice Features:
-    - **High Quality**: Using ElevenLabs Multilingual v2 model
-    - **Custom Voice**: Your downloaded ElevenLabs voice
-    - **Low Latency**: Fast response times
-    - **Emotional Expression**: Natural intonation and emotion
-    
     ### How to Use:
-    1. **Record**: Click microphone and speak
-    2. **Process**: Wait for Noddy to respond with your custom voice
-    3. **Listen**: Enjoy the natural-sounding conversation
+    1. **Record**: Click microphone and speak your message
+    2. **Wait**: Processing takes a few seconds  
+    3. **🎵 IMPORTANT**: Click the **play button ▶️** on Noddy's audio response
+    4. **Listen**: Enjoy the conversation!
+
+    ### Tips:
+    - Chrome blocks autoplay - **manually click play ▶️**
+    - You can download the audio file if needed
+    - Speak clearly for best results
     """)
+
+# Simple test
+try:
+    test_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+    voices = test_client.voices.get_all()
+    print(f"✅ ElevenLabs working! Found {len(voices.voices)} voices")
     
-    gr.Markdown("<small>💡 Powered by Google Gemini 1.5 + ElevenLabs Custom Voice</small>")
+    # Check if your voice exists
+    for voice in voices.voices:
+        if voice.voice_id == CUSTOM_VOICE_ID:
+            print(f"✅ Your voice '{voice.name}' found!")
+            break
+    else:
+        print(f"❌ Voice ID '{CUSTOM_VOICE_ID}' NOT found!")
+        print("Available voices:")
+        for voice in voices.voices[:3]:
+            print(f"  - {voice.name}: {voice.voice_id}")
+except Exception as e:
+    print(f"❌ ElevenLabs test failed: {e}")
+
 
 if __name__ == "__main__":
+    # Start the app
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Starting Gradio app on 0.0.0.0:{port}")
+    
     demo.launch(
-        share=True,
         server_name="0.0.0.0",
-        server_port=int(os.environ.get("PORT", 7860)),
-        show_error=True
+        server_port=port,
+        share=False,
+        show_error=True,
+        quiet=False
     )
