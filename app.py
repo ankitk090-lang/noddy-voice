@@ -1,76 +1,84 @@
-import os
-import json
-import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 import google.generativeai as genai
+import os
 
-# Flask app
 app = Flask(__name__)
 
-# Configure Gemini API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Configure Gemini
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Conversation memory (in-memory dict; resets if app restarts)
-conversations = {}
-DAILY_LIMIT = 50
+# Simple HTML front-end (mic + speaker)
+html_page = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Noddy Voice Assistant</title>
+</head>
+<body style="font-family: Arial; text-align: center; padding: 40px;">
+    <h1>🎀 Noddy - Your Chatty Friend 🎀</h1>
+    <p>Click the button and talk to Noddy! She'll reply in her cheerful girl voice.</p>
 
-def count_tokens(text):
-    """Naive token count approximation (1 token ≈ 4 chars)."""
-    return max(1, len(text) // 4)
+    <button onclick="startChat()">🎤 Talk</button>
+    <p id="status"></p>
+    <p><b>Noddy says:</b> <span id="reply"></span></p>
+    <audio id="audio" controls autoplay></audio>
+
+    <script>
+        async function startChat() {
+            const text = prompt("Say something to Noddy:");
+            if (!text) return;
+
+            document.getElementById("status").innerText = "Thinking...";
+
+            const res = await fetch("/chat", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({message: text})
+            });
+
+            const data = await res.json();
+            document.getElementById("reply").innerText = data.reply;
+
+            // Get voice
+            const audioRes = await fetch("/voice", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({text: data.reply})
+            });
+
+            const audioBlob = await audioRes.blob();
+            const url = URL.createObjectURL(audioBlob);
+            document.getElementById("audio").src = url;
+
+            document.getElementById("status").innerText = "";
+        }
+    </script>
+</body>
+</html>
+"""
+
+@app.route("/")
+def index():
+    return render_template_string(html_page)
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.json
-    user_id = data.get("user_id", "default")  # in real app, bind to auth/session
-    user_input = data.get("message", "")
+    user_message = request.json.get("message", "")
+    response = model.generate_content(f"Noddy is a cheerful little girl with a cartoon Noddy's personality. Reply playfully:\n\nUser: {user_message}\nNoddy:")
+    reply = response.text.strip()
+    return jsonify({"reply": reply})
 
-    # Initialize user memory if not present
-    if user_id not in conversations:
-        conversations[user_id] = {
-            "history": [],
-            "date": datetime.date.today().isoformat(),
-            "tokens_used": 0,
-            "requests": 0,
-        }
-
-    memory = conversations[user_id]
-
-    # Reset daily usage if new day
-    today = datetime.date.today().isoformat()
-    if memory["date"] != today:
-        memory["history"] = []
-        memory["date"] = today
-        memory["tokens_used"] = 0
-        memory["requests"] = 0
-
-    # Check daily quota
-    if memory["requests"] >= DAILY_LIMIT:
-        return jsonify({
-            "reply": "🚫 Noddy is tired for today! Daily request limit reached. Come back tomorrow. 🌙"
-        })
-
-    # Build conversation context
-    context = "\n".join(
-        [f"User: {turn['user']}\nNoddy: {turn['bot']}" for turn in memory["history"]]
-    )
-    prompt = f"You are Noddy, a cheerful and playful girl with Noddy's cartoon personality.\n" \
-             f"Have a fun, friendly chat with the user.\n\n{context}\nUser: {user_input}\nNoddy:"
-
-    # Send to Gemini
-    response = model.generate_content(prompt)
-    bot_reply = response.text.strip()
-
-    # Update memory
-    memory["history"].append({"user": user_input, "bot": bot_reply})
-    memory["requests"] += 1
-    memory["tokens_used"] += count_tokens(user_input) + count_tokens(bot_reply)
-
-    return jsonify({
-        "reply": bot_reply,
-        "requests_today": memory["requests"],
-        "tokens_used_today": memory["tokens_used"]
-    })
+@app.route("/voice", methods=["POST"])
+def voice():
+    text = request.json.get("text", "")
+    from gtts import gTTS
+    from io import BytesIO
+    tts = gTTS(text=text, lang="en", tld="co.in")  # female voice
+    mp3_fp = BytesIO()
+    tts.write_to_fp(mp3_fp)
+    mp3_fp.seek(0)
+    return app.response_class(mp3_fp.read(), mimetype="audio/mpeg")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=10000)
