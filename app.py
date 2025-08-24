@@ -180,6 +180,53 @@ def create_audio_response_with_fallback(text):
     except Exception as e:
         print(f"ElevenLabs Error: {str(e)}")
         return None'''
+with gr.Column(scale=1):
+    audio_input = gr.Audio(
+        type="filepath",
+        label="🎤 Speak to Noddy",
+        elem_id="audio_input"
+    )
+    
+    audio_output = gr.Audio(
+        label="🔊 Noddy's Voice Response",
+        autoplay=False,
+        interactive=True,
+        show_download_button=True
+    )
+    
+    # Add a play reminder
+    play_reminder = gr.Markdown(
+        "💡 **After Noddy responds, click the ▶️ play button above to hear the voice!**",
+        visible=False
+    )
+    
+    clear_btn = gr.Button("🗑️ Clear Chat", variant="secondary")
+
+# Update your process_conversation to show the reminder
+def process_conversation(audio_file, chat_history):
+    # ... existing code ...
+    
+    if audio_response:
+        reminder_visible = True  # Show play reminder
+        status_msg = f"✅ Processed: '{user_message}' - Click ▶️ to play Noddy's response!"
+    else:
+        reminder_visible = False
+        status_msg = f"✅ Text processed: '{user_message}' (voice generation failed)"
+    
+    return new_history, audio_response, status_msg, reminder_visible
+
+# Update the event handler
+audio_input.change(
+    fn=process_conversation,
+    inputs=[audio_input, chat_state],
+    outputs=[chatbot, audio_output, status_display, play_reminder],
+    show_progress=True
+).then(
+    lambda new_history: new_history,
+    inputs=[chatbot],
+    outputs=[chat_state]
+)
+
 
 def process_conversation(audio_file, chat_history):
     """Main function to process voice conversation"""
