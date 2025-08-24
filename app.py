@@ -1,143 +1,76 @@
 import os
-import uuid
-from datetime import datetime, timezone
-from flask import Flask, request, jsonify, render_template_string
-from pathlib import Path
+import json
+import datetime
+from flask import Flask, request, jsonify
 import google.generativeai as genai
-from gtts import gTTS
 
-# ---------- Config ----------
-ASSISTANT_NAME = "Noddy"
-SYSTEM_IDENTITY = (
-    f"You are {ASSISTANT_NAME}, a cheerful girl assistant with Noddy’s cartoon personality. "
-    f"Always refer to yourself as {ASSISTANT_NAME}. "
-    f"Your voice is playful, lively, and distinctly feminine. "
-    f"Be concise and natural for voice playback."
-)
+# Flask app
+app = Flask(__name__)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("Please set GEMINI_API_KEY environment variable.")
+# Configure Gemini API
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash")
-PORT = int(os.environ.get("PORT", 7860))
+# Conversation memory (in-memory dict; resets if app restarts)
+conversations = {}
+DAILY_LIMIT = 50
 
-genai.configure(api_key=GEMINI_API_KEY)
-llm = genai.GenerativeModel(model_name=MODEL_NAME, system_instruction=SYSTEM_IDENTITY)
+def count_tokens(text):
+    """Naive token count approximation (1 token ≈ 4 chars)."""
+    return max(1, len(text) // 4)
 
-# ---------- Flask ----------
-app = Flask(__name__, static_folder="static", static_url_path="/static")
-AUDIO_DIR = Path(app.static_folder) / "audio"
-AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.json
+    user_id = data.get("user_id", "default")  # in real app, bind to auth/session
+    user_input = data.get("message", "")
 
-# ---------- Usage tracking (UTC daily reset) ----------
-USAGE = {
-    "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-    "requests": 0,
-    "in_tokens": 0,
-    "out_tokens": 0,
-}
-DAILY_REQUEST_LIMIT = int(os.getenv("DAILY_REQUEST_LIMIT", "50"))
+    # Initialize user memory if not present
+    if user_id not in conversations:
+        conversations[user_id] = {
+            "history": [],
+            "date": datetime.date.today().isoformat(),
+            "tokens_used": 0,
+            "requests": 0,
+        }
 
-def maybe_reset_usage():
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if USAGE["date"] != today:
-        USAGE["date"] = today
-        USAGE["requests"] = 0
-        USAGE["in_tokens"] = 0
-        USAGE["out_tokens"] = 0
+    memory = conversations[user_id]
 
-def usage_panel_md():
-    return {
-        "date": USAGE["date"],
-        "requests": USAGE["requests"],
-        "limit": DAILY_REQUEST_LIMIT,
-        "in_tokens": USAGE["in_tokens"],
-        "out_tokens": USAGE["out_tokens"],
-    }
+    # Reset daily usage if new day
+    today = datetime.date.today().isoformat()
+    if memory["date"] != today:
+        memory["history"] = []
+        memory["date"] = today
+        memory["tokens_used"] = 0
+        memory["requests"] = 0
 
-def synthesize_tts(text: str) -> str:
-    """Generate Noddy’s female voice (British accent)"""
-    file_id = f"{uuid.uuid4().hex}.mp3"
-    out_path = AUDIO_DIR / file_id
-    # gTTS female-like voice with UK accent
-    tts = gTTS(text=text, lang="en", tld="co.uk")
-    tts.save(str(out_path))
-    return f"/static/audio/{file_id}"
-
-@app.route("/api/chat", methods=["POST"])
-def api_chat():
-    """
-    Body JSON:
-      {
-        "text": "user message",
-        "history": [{"role":"user|assistant", "content":"..."}]   # optional
-      }
-    """
-    maybe_reset_usage()
-    if USAGE["requests"] >= DAILY_REQUEST_LIMIT:
-        msg = "⚠️ Daily request limit reached for Noddy (Gemini free tier). Please try again tomorrow (UTC)."
-        audio_url = synthesize_tts(msg)
+    # Check daily quota
+    if memory["requests"] >= DAILY_LIMIT:
         return jsonify({
-            "reply": msg,
-            "audio_url": audio_url,
-            "usage": usage_panel_md()
+            "reply": "🚫 Noddy is tired for today! Daily request limit reached. Come back tomorrow. 🌙"
         })
 
-    data = request.get_json(force=True)
-    user_text = (data.get("text") or "").strip()
-    history = data.get("history") or []
+    # Build conversation context
+    context = "\n".join(
+        [f"User: {turn['user']}\nNoddy: {turn['bot']}" for turn in memory["history"]]
+    )
+    prompt = f"You are Noddy, a cheerful and playful girl with Noddy's cartoon personality.\n" \
+             f"Have a fun, friendly chat with the user.\n\n{context}\nUser: {user_input}\nNoddy:"
 
-    # Build Gemini history
-    gem_hist = []
-    for m in history:
-        role = "user" if m.get("role") == "user" else "model"
-        content = m.get("content", "")
-        if content:
-            gem_hist.append({"role": role, "parts": [content]})
+    # Send to Gemini
+    response = model.generate_content(prompt)
+    bot_reply = response.text.strip()
 
-    # Chat request
-    chat = llm.start_chat(history=gem_hist)
-    response = chat.send_message(user_text if user_text else "(silence)")
-    reply_text = (getattr(response, "text", None) or "").strip()
-    if not reply_text:
-        reply_text = "Hmm, I didn’t catch that. Could you please repeat?"
-
-    # Token usage (Gemini usage_metadata)
-    usage = getattr(response, "usage_metadata", None)
-    in_tok = int(getattr(usage, "prompt_token_count", 0) or 0)
-    out_tok = int(getattr(usage, "candidates_token_count", 0) or 0)
-    USAGE["requests"] += 1
-    USAGE["in_tokens"] += in_tok
-    USAGE["out_tokens"] += out_tok
-
-    audio_url = synthesize_tts(reply_text)
+    # Update memory
+    memory["history"].append({"user": user_input, "bot": bot_reply})
+    memory["requests"] += 1
+    memory["tokens_used"] += count_tokens(user_input) + count_tokens(bot_reply)
 
     return jsonify({
-        "reply": reply_text,
-        "audio_url": audio_url,
-        "usage": usage_panel_md()
+        "reply": bot_reply,
+        "requests_today": memory["requests"],
+        "tokens_used_today": memory["tokens_used"]
     })
 
-# ---------- Minimal UI ----------
-INDEX_HTML = """<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>🎙️ Noddy — Voice Assistant</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-</head>
-<body>
-  <h1>🤖 Noddy — Voice Assistant</h1>
-  <p>Type or speak to Noddy, and she’ll reply in her cheerful girl voice.</p>
-  <p>➡️ Visit <code>/api/chat</code> endpoint with JSON {"text":"hello"} for API use.</p>
-</body>
-</html>
-"""
-
-@app.route("/")
-def index():
-    return render_template_string(INDEX_HTML)
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
