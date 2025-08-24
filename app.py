@@ -62,6 +62,32 @@ def chat_with_noddy(message, history):
         return f"Sorry, I had trouble processing that. Error: {str(e)}"
 
 def create_audio_response_with_fallback(text):
+    """Simple ElevenLabs TTS"""
+    try:
+        # Direct ElevenLabs call
+        audio = elevenlabs_client.text_to_speech.convert(
+            text=text,
+            voice_id=CUSTOM_VOICE_ID,
+            model_id="eleven_multilingual_v2"
+        )
+        
+        # Save to file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            for chunk in audio:
+                if chunk:
+                    tmp_file.write(chunk)
+            return tmp_file.name
+    
+    except:
+        # Simple fallback
+        from gtts import gTTS
+        tts = gTTS(text=text, lang='en')
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            tts.save(tmp_file.name)
+            return tmp_file.name
+
+
+'''def create_audio_response_with_fallback(text):
     """Try ElevenLabs first, fallback to gTTS if it fails"""
     print(f"🎯 Creating audio for text: '{text[:100]}...'")
     
@@ -120,7 +146,7 @@ def create_audio_response_with_fallback(text):
     except Exception as e:
         print(f"❌ gTTS fallback also failed: {str(e)}")
     
-    return None
+    return None'''
 
 
 def process_conversation(audio_file, chat_history):
