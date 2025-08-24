@@ -100,6 +100,39 @@ def create_elevenlabs_audio(text):
 from gtts import gTTS
 
 def create_audio_response_with_fallback(text):
+    """Simple TTS test - just use gTTS for now"""
+    print(f"🎯 Creating audio for text: '{text[:100]}...'")
+    
+    try:
+        # Use only gTTS for now to test
+        from gtts import gTTS
+        tts = gTTS(text=text, lang='en', slow=False)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            tts.save(tmp_file.name)
+            print(f"✅ gTTS file created: {tmp_file.name}")
+            
+            # Check if file exists and has content
+            import os
+            if os.path.exists(tmp_file.name):
+                file_size = os.path.getsize(tmp_file.name)
+                print(f"✅ File size: {file_size} bytes")
+                if file_size > 0:
+                    return tmp_file.name
+                else:
+                    print("❌ File is empty!")
+            else:
+                print("❌ File doesn't exist!")
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ gTTS Error: {str(e)}")
+        print(f"❌ Full traceback: {traceback.format_exc()}")
+        return None
+
+
+'''def create_audio_response_with_fallback(text):
     """Try ElevenLabs first, fallback to gTTS if it fails"""
     
     # Try ElevenLabs first
@@ -117,7 +150,7 @@ def create_audio_response_with_fallback(text):
             return tmp_file.name
     except Exception as e:
         print(f"❌ gTTS fallback also failed: {str(e)}")
-        return None
+        return None'''
 
 # Update your process_conversation function to use the fallback:
 # Replace this line:
