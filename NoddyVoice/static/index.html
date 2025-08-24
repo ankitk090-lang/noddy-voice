@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Noddy Voice</title>
+</head>
+<body>
+    <h1>Talk to Noddy!</h1>
+    <input type="text" id="text" placeholder="Type something..." />
+    <button onclick="speak()">Speak</button>
+    <audio id="audio" controls></audio>
+
+    <script>
+        async function speak() {
+            let text = document.getElementById('text').value;
+
+            // Add playful tips automatically sometimes
+            if (Math.random() < 0.3) { // 30% chance
+                const tips = [
+                    "Remember, a little kindness goes a long way!",
+                    "Let's have some fun today!",
+                    "Learning is always more fun with a smile!",
+                    "Hehe, isn't this exciting?"
+                ];
+                text = text + " " + tips[Math.floor(Math.random() * tips.length)];
+            }
+
+            const formData = new FormData();
+            formData.append('text', text);
+
+            const res = await fetch('/speak', {
+                method: 'POST',
+                body: formData
+            });
+
+            const blob = await res.blob();
+            const audio = document.getElementById('audio');
+            audio.src = URL.createObjectURL(blob);
+            audio.play();
+        }
+    </script>
+</body>
+</html>
