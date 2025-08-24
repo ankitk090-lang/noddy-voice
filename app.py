@@ -61,8 +61,71 @@ def chat_with_noddy(message, history):
         return response.text
     except Exception as e:
         return f"Sorry, I had trouble processing that. Error: {str(e)}"
-
 def create_elevenlabs_audio(text):
+    """Convert text to audio using ElevenLabs API with debug logging"""
+    try:
+        print(f"🔍 Debug - Text to convert: {text[:50]}...")
+        
+        # Check if API key is loaded
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            print("❌ Error: ELEVENLABS_API_KEY not found in environment!")
+            return None
+        
+        print(f"✅ API Key loaded: {api_key[:10]}...")
+        print(f"✅ Voice ID: {CUSTOM_VOICE_ID}")
+        
+        # Make API call
+        audio = elevenlabs_client.text_to_speech.convert(
+            text=text,
+            voice_id=CUSTOM_VOICE_ID,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128"
+        )
+        
+        print("✅ ElevenLabs API call successful!")
+        
+        # Save audio file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            for chunk in audio:
+                if chunk:
+                    tmp_file.write(chunk)
+            print(f"✅ Audio file created: {tmp_file.name}")
+            return tmp_file.name
+            
+    except Exception as e:
+        print(f"❌ ElevenLabs Error: {str(e)}")
+        print(f"❌ Full error: {traceback.format_exc()}")
+        return None
+from gtts import gTTS
+
+def create_audio_response_with_fallback(text):
+    """Try ElevenLabs first, fallback to gTTS if it fails"""
+    
+    # Try ElevenLabs first
+    audio_file = create_elevenlabs_audio(text)
+    if audio_file:
+        return audio_file
+    
+    # Fallback to gTTS
+    print("🔄 Falling back to gTTS...")
+    try:
+        tts = gTTS(text=text, lang='en', slow=False)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            tts.save(tmp_file.name)
+            print("✅ gTTS fallback successful!")
+            return tmp_file.name
+    except Exception as e:
+        print(f"❌ gTTS fallback also failed: {str(e)}")
+        return None
+
+# Update your process_conversation function to use the fallback:
+# Replace this line:
+# audio_response = create_elevenlabs_audio(bot_message)
+# With this:
+audio_response = create_audio_response_with_fallback(bot_message)
+
+'''def create_elevenlabs_audio(text):
     """Convert text to audio using ElevenLabs API"""
     try:
         # Generate audio using ElevenLabs
@@ -83,7 +146,7 @@ def create_elevenlabs_audio(text):
             
     except Exception as e:
         print(f"ElevenLabs Error: {str(e)}")
-        return None
+        return None'''
 
 def process_conversation(audio_file, chat_history):
     """Main function to process voice conversation"""
