@@ -123,7 +123,7 @@ def create_audio_response_with_fallback(text):
 # Replace this line:
 # audio_response = create_elevenlabs_audio(bot_message)
 # With this:
-audio_response = create_audio_response_with_fallback(bot_message)
+#audio_response = create_audio_response_with_fallback(bot_message)
 
 '''def create_elevenlabs_audio(text):
     """Convert text to audio using ElevenLabs API"""
