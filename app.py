@@ -269,6 +269,26 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
     - Speak clearly for best results
     """)
 
+# Simple test
+try:
+    test_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+    voices = test_client.voices.get_all()
+    print(f"✅ ElevenLabs working! Found {len(voices.voices)} voices")
+    
+    # Check if your voice exists
+    for voice in voices.voices:
+        if voice.voice_id == CUSTOM_VOICE_ID:
+            print(f"✅ Your voice '{voice.name}' found!")
+            break
+    else:
+        print(f"❌ Voice ID '{CUSTOM_VOICE_ID}' NOT found!")
+        print("Available voices:")
+        for voice in voices.voices[:3]:
+            print(f"  - {voice.name}: {voice.voice_id}")
+except Exception as e:
+    print(f"❌ ElevenLabs test failed: {e}")
+
+
 if __name__ == "__main__":
     # Start the app
     port = int(os.environ.get("PORT", 10000))
