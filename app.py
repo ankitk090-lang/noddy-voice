@@ -60,34 +60,66 @@ def chat_with_noddy(message, history):
         return f"Sorry, I had trouble processing that. Error: {str(e)}"
 
 def create_audio_response_with_fallback(text):
-    """Simple TTS test - just use gTTS for now"""
+    """Try ElevenLabs first, fallback to gTTS if it fails"""
     print(f"🎯 Creating audio for text: '{text[:100]}...'")
     
+    # First try ElevenLabs
     try:
-        # Use only gTTS for now to test
+        print("🔄 Attempting ElevenLabs...")
+        
+        # Check if API key exists
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            print("❌ ELEVENLABS_API_KEY not found, using gTTS fallback")
+            raise Exception("No API key")
+        
+        print(f"✅ ElevenLabs API Key found: {api_key[:10]}...")
+        print(f"✅ Using Voice ID: {CUSTOM_VOICE_ID}")
+        
+        # Make ElevenLabs API call
+        audio = elevenlabs_client.text_to_speech.convert(
+            text=text,
+            voice_id=CUSTOM_VOICE_ID,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128"
+        )
+        
+        print("✅ ElevenLabs API call successful!")
+        
+        # Save ElevenLabs audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+            for chunk in audio:
+                if chunk:
+                    tmp_file.write(chunk)
+            
+            if os.path.exists(tmp_file.name):
+                file_size = os.path.getsize(tmp_file.name)
+                print(f"✅ ElevenLabs file created: {tmp_file.name} ({file_size} bytes)")
+                if file_size > 0:
+                    return tmp_file.name
+        
+    except Exception as e:
+        print(f"❌ ElevenLabs failed: {str(e)}")
+    
+    # Fallback to gTTS
+    print("🔄 Falling back to gTTS...")
+    try:
         tts = gTTS(text=text, lang='en', slow=False)
         
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
             tts.save(tmp_file.name)
-            print(f"✅ gTTS file created: {tmp_file.name}")
             
-            # Check if file exists and has content
             if os.path.exists(tmp_file.name):
                 file_size = os.path.getsize(tmp_file.name)
-                print(f"✅ File size: {file_size} bytes")
+                print(f"✅ gTTS fallback successful: {tmp_file.name} ({file_size} bytes)")
                 if file_size > 0:
                     return tmp_file.name
-                else:
-                    print("❌ File is empty!")
-            else:
-                print("❌ File doesn't exist!")
-        
-        return None
         
     except Exception as e:
-        print(f"❌ gTTS Error: {str(e)}")
-        print(f"❌ Full traceback: {traceback.format_exc()}")
-        return None
+        print(f"❌ gTTS fallback also failed: {str(e)}")
+    
+    return None
+
 
 def process_conversation(audio_file, chat_history):
     """Main function to process voice conversation"""
