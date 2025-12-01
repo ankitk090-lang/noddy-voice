@@ -89,7 +89,7 @@ def create_audio_response_with_fallback(text):
 
 '''def create_audio_response_with_fallback(text):
     """Try ElevenLabs first, fallback to gTTS if it fails"""
-    print(f"🎯 Creating audio for text: '{text[:100]}...'")
+    print(f"Creating audio for text: '{text[:100]}...'")
     
     # First try ElevenLabs
     try:
@@ -98,11 +98,11 @@ def create_audio_response_with_fallback(text):
         # Check if API key exists
         api_key = os.getenv("ELEVENLABS_API_KEY")
         if not api_key:
-            print("❌ ELEVENLABS_API_KEY not found, using gTTS fallback")
+            print("ELEVENLABS_API_KEY not found, using gTTS fallback")
             raise Exception("No API key")
         
-        print(f"✅ ElevenLabs API Key found: {api_key[:10]}...")
-        print(f"✅ Using Voice ID: {CUSTOM_VOICE_ID}")
+        print(f"ElevenLabs API Key found: {api_key[:10]}...")
+        print(f"Using Voice ID: {CUSTOM_VOICE_ID}")
         
         # Make ElevenLabs API call
         audio = elevenlabs_client.text_to_speech.convert(
@@ -112,7 +112,7 @@ def create_audio_response_with_fallback(text):
             output_format="mp3_44100_128"
         )
         
-        print("✅ ElevenLabs API call successful!")
+        print("ElevenLabs API call successful!")
         
         # Save ElevenLabs audio
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
@@ -122,15 +122,15 @@ def create_audio_response_with_fallback(text):
             
             if os.path.exists(tmp_file.name):
                 file_size = os.path.getsize(tmp_file.name)
-                print(f"✅ ElevenLabs file created: {tmp_file.name} ({file_size} bytes)")
+                print(f"ElevenLabs file created: {tmp_file.name} ({file_size} bytes)")
                 if file_size > 0:
                     return tmp_file.name
         
     except Exception as e:
-        print(f"❌ ElevenLabs failed: {str(e)}")
+        print(f"ElevenLabs failed: {str(e)}")
     
     # Fallback to gTTS
-    print("🔄 Falling back to gTTS...")
+    print("Falling back to gTTS...")
     try:
         tts = gTTS(text=text, lang='en', slow=False)
         
@@ -139,7 +139,7 @@ def create_audio_response_with_fallback(text):
             
             if os.path.exists(tmp_file.name):
                 file_size = os.path.getsize(tmp_file.name)
-                print(f"✅ gTTS fallback successful: {tmp_file.name} ({file_size} bytes)")
+                print(f"gTTS fallback successful: {tmp_file.name} ({file_size} bytes)")
                 if file_size > 0:
                     return tmp_file.name
         
@@ -170,9 +170,9 @@ def process_conversation(audio_file, chat_history):
         ]
         
         if audio_response:
-            status_msg = f"✅ Processed: '{user_message}' - Click ▶️ to play Noddy's response!"
+            status_msg = f"Processed: '{user_message}' - Click ▶️ to play Noddy's response!"
         else:
-            status_msg = f"✅ Text processed: '{user_message}' (voice generation failed)"
+            status_msg = f"Text processed: '{user_message}' (voice generation failed)"
         
         return new_history, audio_response, status_msg
         
@@ -197,9 +197,9 @@ custom_css = """
 }
 """
 
-with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice Chat") as demo:
+with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="Noddy Voice Chat") as demo:
     
-    gr.Markdown("# 🤖 Noddy Voice Chat")
+    gr.Markdown("# Noddy Voice Chat")
     gr.Markdown("*Talk to Noddy using your voice! Click the play button ▶️ to hear responses.*")
     
     with gr.Row():
@@ -220,12 +220,12 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
         with gr.Column(scale=1):
             audio_input = gr.Audio(
                 type="filepath",
-                label="🎤 Speak to Noddy",
+                label="Speak to Noddy",
                 elem_id="audio_input"
             )
             
             audio_output = gr.Audio(
-                label="🔊 Noddy's Voice Response",
+                label="Noddy's Voice Response",
                 autoplay=False,  # Disable autoplay to fix Chrome issues
                 interactive=True,
                 show_download_button=True
@@ -260,7 +260,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
     ### How to Use:
     1. **Record**: Click microphone and speak your message
     2. **Wait**: Processing takes a few seconds  
-    3. **🎵 IMPORTANT**: Click the **play button ▶️** on Noddy's audio response
+    3. **IMPORTANT**: Click the **play button ▶️** on Noddy's audio response
     4. **Listen**: Enjoy the conversation!
 
     ### Tips:
@@ -273,20 +273,20 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css, title="🤖 Noddy Voice C
 try:
     test_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
     voices = test_client.voices.get_all()
-    print(f"✅ ElevenLabs working! Found {len(voices.voices)} voices")
+    print(f"ElevenLabs working! Found {len(voices.voices)} voices")
     
     # Check if your voice exists
     for voice in voices.voices:
         if voice.voice_id == CUSTOM_VOICE_ID:
-            print(f"✅ Your voice '{voice.name}' found!")
+            print(f"Your voice '{voice.name}' found!")
             break
     else:
-        print(f"❌ Voice ID '{CUSTOM_VOICE_ID}' NOT found!")
+        print(f"Voice ID '{CUSTOM_VOICE_ID}' NOT found!")
         print("Available voices:")
         for voice in voices.voices[:3]:
             print(f"  - {voice.name}: {voice.voice_id}")
 except Exception as e:
-    print(f"❌ ElevenLabs test failed: {e}")
+    print(f"ElevenLabs test failed: {e}")
 
 
 if __name__ == "__main__":
