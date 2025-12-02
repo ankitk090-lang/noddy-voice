@@ -1,7 +1,0 @@
-gradio>=4.0.0
-google-generativeai
-gtts
-SpeechRecognition
-pydub
-elevenlabs
-
