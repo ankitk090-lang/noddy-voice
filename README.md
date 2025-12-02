@@ -58,6 +58,3 @@ Noddy is a playful, pastel-themed AI assistant built with React and FastAPI. It 
     npm run dev
     ```
 
-## Deployment
-
-See `deployment_guide.md` for instructions on how to deploy to Render (Backend) and Netlify (Frontend).
