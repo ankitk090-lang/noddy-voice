@@ -5,11 +5,11 @@ Noddy is a playful, pastel-themed AI assistant built with React and FastAPI. It 
 ## Features
 
 -   **Chat Interface**: Beautiful, responsive UI with TailwindCSS.
--   **Voice Interaction**:
-    -   Microphone input (Web Speech API).
-    -   High-quality voice output (ElevenLabs).
--   **Multi-Model Support**: Switch between Gemini, Llama 3.1, Mistral, and more.
--   **Persona**: A unique, engaging character that persists across conversations.
+-   **Long-Term Memory (RAG)**: Upload PDF documents to give Noddy context-aware knowledge.
+-   **Smart Voice Interaction**: Talk to Noddy naturally with voice-to-text and hear her reply with a custom ElevenLabs voice.
+-   **Multi-Model Support**: Switch between powerful LLMs like Llama 3.1 405B (NVIDIA) and others via OpenRouter.
+-   **Modern UI**: A beautiful, pastel-themed interface built with React and TailwindCSS.
+-   **FastAPI Backend**: Robust Python backend handling vector storage (ChromaDB) and API integrations.
 
 ## Project Structure
 
@@ -32,6 +32,10 @@ Noddy is a playful, pastel-themed AI assistant built with React and FastAPI. It 
 3.  Install dependencies:
     ```bash
     pip install -r requirements.txt
+    # Note: If you encounter NumPy errors, ensure you have numpy<2 installed:
+    # pip install "numpy<2"
+    # Install RAG dependencies for document processing
+    pip install "unstructured[pdf]" "unstructured[docx]" "unstructured[pptx]" "unstructured[xlsx]" "unstructured[epub]" "unstructured[odt]" "unstructured[rtf]" "unstructured[tsv]" "unstructured[csv]" "unstructured[html]" "unstructured[xml]" "unstructured[json]" "unstructured[md]" "unstructured[rst]" "unstructured[eml]" "unstructured[msg]" "unstructured[org]" "unstructured[txt]" "unstructured[image]" "unstructured[email]" "unstructured[markdown]" "unstructured[text]" "unstructured[all-docs]"
     ```
 4.  Create a `.env` file with your API keys (see `.env.example` if available, or use your keys for OPENROUTER_API_KEY, NVIDIA_API_KEY, ELEVENLABS_API_KEY).
 5.  Run the server:
@@ -54,6 +58,3 @@ Noddy is a playful, pastel-themed AI assistant built with React and FastAPI. It 
     npm run dev
     ```
 
-## Deployment
-
-See `deployment_guide.md` for instructions on how to deploy to Render (Backend) and Netlify (Frontend).
