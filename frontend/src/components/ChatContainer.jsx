@@ -20,7 +20,7 @@ const ChatContainer = () => {
 
     const [inputText, setInputText] = useState('');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [currentModel, setCurrentModel] = useState('x-ai/grok-4.1-fast:free');
+    const [currentModel, setCurrentModel] = useState('meta/llama-3.1-405b-instruct');
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {

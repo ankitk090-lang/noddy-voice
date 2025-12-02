@@ -25,7 +25,7 @@ app.add_middleware(
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # Using a free model as requested, or a reliable fallback
-MODEL_NAME = "x-ai/grok-4.1-fast:free" # Updated to a valid model name or use "mistralai/mistral-7b-instruct:free"
+MODEL_NAME = "meta/llama-3.1-405b-instruct"
 
 # Persona Definition
 NODDY_PERSONA = """
