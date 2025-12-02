@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --color-noddy-pink: #FFB7B2;
+  --color-noddy-blue: #AEC6CF;
+  --color-noddy-cream: #FDFD96;
+  --color-noddy-text: #4A4A4A;
+  --color-noddy-bg: #F9F9F9;
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--color-noddy-bg);
+  color: var(--color-noddy-text);
+  font-family: var(--font-sans);
+}
+
+/* Avatar Animations */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes blink {
+
+  0%,
+  90%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes speak {
+
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(0.5);
+  }
+}
+
+@keyframes listen {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+}
+
+@keyframes look-around {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-2px);
+  }
+
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-blink {
+  animation: blink 4s infinite;
+}
+
+.animate-speak {
+  animation: speak 0.3s infinite;
+}
+
+.animate-listen {
+  animation: listen 1.5s ease-in-out infinite;
+}
+
+.animate-look {
+  animation: look-around 2s ease-in-out infinite;
+}
