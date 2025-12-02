@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+requests
+pydantic
+chromadb
+pypdf
+sentence-transformers
+python-multipart
+numpy<2
